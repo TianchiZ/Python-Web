@@ -1,0 +1,132 @@
+{% extends '__base__.html' %}
+
+{% block title %}{% endblock %}
+
+{% block beforehead %}
+
+<script>
+function initNav(data){
+    var vendors = [];
+    var v_id = [];
+    var models = [];
+    var t = 0;
+    for(var i=0; i<data.vendor.length; i++){
+        vendors.push(data.vendor[i].vendor_name);
+        v_id.push(data.vendor[i].vendor_id);
+    }
+
+    $('#pan').append('<ul id="nav" class="uk-nav uk-nav-side uk-nav-parent-icon" data-uk-nav>');
+    var nav = $('#nav');
+    nav.append('<li class="uk-nav-divider"></li>');
+    vendors.map(function(x){
+        nav.append('<li id='+x+' class="uk-parent"><a href="#">'+x+'</a></li>');
+        $('#'+x).append('<ul class="uk-nav-sub"></ul>');
+        for(var i=0; i<data.model.length; i++){
+            if(data.model[i].vendor_id === v_id[t]){
+                models.push(data.model[i].model_name);
+            }
+        }
+        models.map(function(y){
+            tg = y.replace(/ /g,"_");
+            $('#'+x+' > ul').append('<li><a href="#" data-uk-toggle="{target:\'#'+tg+'\'}">'+y+'</a></li>');
+            initTab(data,x,tg,y);
+        })
+        models = [];
+        t++;
+    });
+}
+
+function initTab(data,vendor,model,real_model){
+    $('#sw').append('<div id="'+model+'" class="uk-panel-box uk-hidden">');
+    $('#'+model).append('<div class="uk-panel-title">'+real_model+'</div>');
+    $('#'+model).append('<table class="uk-table uk-table-hover"></table>');
+    $('#'+model+' > table').append('<thead><tr></tr></thead>');
+    $('#'+model+' > table > thead > tr').append('<th class="uk-width-1-10">Firmware Rev</th>');
+    $('#'+model+' > table > thead > tr').append('<th class="uk-width-1-10">Firmware Type</th>');
+    $('#'+model+' > table > thead > tr').append('<th class="uk-width-1-10">Link Speed</th>');
+    $('#'+model+' > table > thead > tr').append('<th class="uk-width-1-10">Format</th>');
+    $('#'+model+' > table > thead > tr').append('<th class="uk-width-1-10">Firmware File</th>');
+    $('#'+model+' > table > thead > tr').append('<th class="uk-width-1-10">Change List</th>');
+    $('#'+model+' > table > thead > tr').append('<th class="uk-width-2-10">Uploaded By</th>');
+    $('#'+model+' > table > thead > tr').append('<th class="uk-width-1-10">Released At</th>');
+    $('#'+model+' > table').append('<tbody></tbody>');
+    $('#'+model+' > table > tbody').append('<tr v-repeat="fw: fws"></tr>');
+    $('#'+model+' > table > tbody > tr').append('<td><span v-text="fw.firmware_revision"></span></td>');
+    $('#'+model+' > table > tbody > tr').append('<td><span v-text="fw.fw_type"></span></td>');
+    $('#'+model+' > table > tbody > tr').append('<td><span v-text="fw.fw_drive_linkspeed">Speed</span></td>');
+    $('#'+model+' > table > tbody > tr').append('<td><span v-text="fw.fw_drive_format"></span></td>');
+    $('#'+model+' > table > tbody > tr').append('<td><a target="_blank" v-attr = "href: \'/firmwares/\'+fw.fw_vendor_name+\'/\'+fw.fw_model_name+\'/\'+fw.firmware_name" download><span>Download</span></a></td>');
+    $('#'+model+' > table > tbody > tr').append('<td><a target="_blank" v-attr = "href: \'/firmwares/\'+fw.fw_vendor_name+\'/\'+fw.fw_model_name+\'/\'+fw.changelist_name" download><span v-text="fw.changelist_status"></span></a></td>');
+    $('#'+model+' > table > tbody > tr').append('<td><span v-text="fw.user_email"></span></td>');
+    $('#'+model+' > table > tbody > tr').append('<td><span v-text="fw.fw_release_date"></span></td>');
+ 
+    var temp = [];
+    for(var i=0; i<data.firmware.length; i++){
+        if(data.firmware[i].fw_vendor_name === vendor && data.firmware[i].fw_model_name === real_model){
+            temp.push(data.firmware[i]);
+        }
+    }
+
+    var vm = new Vue({
+        el: '#'+model,
+        data: {
+            fws: temp,
+        },
+    });
+
+}
+
+$(function() {
+    getJSON('/api/drive',
+        function (err, results) {
+        if (err) {
+            return fatal(err);
+        }
+    initNav(results);
+    });
+});
+
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+    <nav class="uk-navbar uk-navbar-attached uk-margin-bottom">
+        <div class="uk-container uk-container-center">
+            <a href="/" class="uk-navbar-brand">GDE Raw Firmware Repo</a>
+            <div class="uk-navbar-flip">
+                <ul class="uk-navbar-nav">
+                {% if __user__ %}
+                    <li class="uk-parent" data-uk-dropdown>
+                        <a href="#0"><i class="uk-icon-user"></i> {{ __user__.name }}</a>
+                        <div class="uk-dropdown uk-dropdown-navbar">
+                            <ul class="uk-nav uk-nav-navbar">
+                                <li><a href="/signout"><i class="uk-icon-sign-out"></i> Sign Out</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                {% else %}
+                    <li><a href="/signin"><i class="uk-icon-sign-in"></i> Sign In</a></li>
+                    <li><a href="/register"><i class="uk-icon-edit"></i> Register</a></li>
+                {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+<div class="uk-grid">
+
+    <div id="pan" class="uk-panel uk-panel-box uk-width-1-6 uk-margin-left">
+        <h3 class="uk-panel-title">Navigation Panel</h3>
+    </div>
+
+    <div id="sw" class="uk-panel uk-width-8-10 uk-margin-left">
+        <div class="uk-panel-box uk-margin-bottom">
+            <div class="uk-panel-title">Information</div>
+            <div><span>This site contains raw firmware files and change lists for easy tracking purpose. To view a table of a drive model, click its model name. And to hide that table, just click the model name once again. </span></div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

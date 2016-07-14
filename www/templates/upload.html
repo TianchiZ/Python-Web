@@ -1,0 +1,311 @@
+{% extends '__base__.html' %}
+
+{% block title %}{% endblock %}
+
+{% block beforehead %}
+
+<script>
+
+var obj;
+
+function initForm(data){
+    var vdop = [];
+    var mdop = [];
+    for(var i=0; i<data.vendor.length; i++){
+        vdop.push(data.vendor[i].vendor_name);
+    }
+    for(var i=0; i<data.model.length; i++){
+        mdop.push(data.model[i].model_name);
+    }
+    new Vue({
+        el: '#fwinfo',
+        data: {
+            vd: '',
+            vdoptions: vdop,
+            md: '',
+            mdoptions: mdop
+        }
+    });
+    new Vue({
+        el: '#modelinfo',
+        data: {
+            vd_add:'',
+            vd_addoptions: vdop
+        }
+    });
+}
+
+function checkValidOption(){
+    var vd_b = $('#vd_id');
+    var md_b = $('#md_id');
+    vd_b.onchange = function() {op_check();}
+    md_b.onchange = function() {op_check();}
+    op_check();
+    function op_check(){
+        var vid;
+        var m_arr = [];
+        for(var i=0;i<obj.vendor.length;i++)
+        {
+            if(obj.vendor[i].vendor_name === vd_b.val())
+            {
+                vid = obj.vendor[i].vendor_id;
+                continue;
+            }
+        }
+        for(var i=0; i<obj.model.length; i++)
+        {
+            if(obj.model[i].vendor_id === vid)
+            {
+                m_arr.push(obj.model[i].model_name);
+            }
+        }
+        $('#md_id option').each(function(){
+            $(this).show();
+            if($.inArray($(this).val(), m_arr) === -1)
+            {
+                $(this).hide();
+            }
+        });
+    }
+}
+
+function decideFileOption(){
+
+}
+
+$(function() {
+    getJSON('/api/drive',
+        function (err, results) {
+        if (err) {
+            return fatal(err);
+        }
+    obj = results;
+    initForm(results);
+    });
+
+    $('#adde_file').change(function(){
+        if($('#adde_file').val() == 'Add Both Files'){
+            $('#fw_file').show();
+            $('#cl_file').show();
+            $('#fw_releasedate').show();
+        } else if($('#adde_file').val() == 'Add Firmware Only'){
+            $('#fw_file').show();
+            $('#cl_file').hide();
+            $('#fw_releasedate').show();
+        } else if($('#adde_file').val() == 'Add Changelist Only'){
+            $('#fw_file').hide();
+            $('#cl_file').show();
+            $('#fw_releasedate').hide();
+        } else {
+            $('#fw_file').hide();
+            $('#cl_file').hide();
+            $('#fw_releasedate').hide();
+        } 
+    })
+
+    var form = document.forms.namedItem("fwinfo");
+    form.addEventListener('submit', function(ev) {
+        if(confirm('Confirm to '+form.adde_file.value+' for '+form.fw_type.value+' '+form.fw_linkspeed.value+' '+form.fw_driveformat.value+' '+form.vd_id.value+' '+form.md_id.value+' '+form.fw_rev.value+'?')){
+            oData = new FormData(form);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "/manage/upload/files", true);
+            oReq.onload = function(oEvent) {
+                if (oReq.status == 200) {
+                    alert("Updated successfully!");
+                    location.assign("/manage/upload");
+                } else if(oReq.status == 889) {
+                    alert("Both files needed!");
+                } else if(oReq.status == 888) {
+                    alert("Firmware file already exists!");
+                } else if(oReq.status == 887) {
+                    alert("Firmware file doesn't exist!");
+                } else {
+                    alert("Upload failed, please contact site admin!");
+                }
+            };
+            oReq.send(oData);
+        }
+
+        ev.preventDefault();
+    }, false);
+
+    var model_form = document.forms.namedItem("modelinfo");
+    model_form.addEventListener('submit', function(ev) {
+        oData = new FormData(model_form);
+        var oReq = new XMLHttpRequest();
+        oReq.open("POST", "/manage/upload/addmodel", true);
+        oReq.onload = function(oEvent) {
+            if (oReq.status == 200) {
+                alert("Updated successfully!");
+                location.assign("/manage/upload");
+            } else if(oReq.status == 999) {
+                alert("Model already existed!");
+            } else if(oReq.status == 998){
+                alert("Firmware files existed for this model, please delete them first!");
+            } else if(oReq.status == 997){
+                alert("Model doesn't exist, please check your spelling!");
+            } else {
+                alert("Added failed, please contact site admin!");
+            }
+        };
+        oReq.send(oData);
+        ev.preventDefault();
+    }, false);
+
+});
+
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+    <nav class="uk-navbar uk-navbar-attached uk-margin-bottom">
+        <div class="uk-container uk-container-center">
+            <a href="/" class="uk-navbar-brand">GDE Raw Firmware Repo</a>
+            <div class="uk-navbar-flip">
+                <ul class="uk-navbar-nav">
+                {% if __user__ %}
+                    <li class="uk-parent" data-uk-dropdown>
+                        <a href="#0"><i class="uk-icon-user"></i> {{ __user__.name }}</a>
+                        <div class="uk-dropdown uk-dropdown-navbar">
+                            <ul class="uk-nav uk-nav-navbar">
+                                <li><a href="/signout"><i class="uk-icon-sign-out"></i> Sign Out</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                {% else %}
+                    <li><a href="/signin"><i class="uk-icon-sign-in"></i> Sign In</a></li>
+                    <li><a href="/register"><i class="uk-icon-edit"></i> Register</a></li>
+                {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+<div class="uk-grid">
+    <div class="uk-panel uk-panel-box uk-width-3-10 uk-push-1-10">
+        <h3 class="uk-panel-header">Update Database</h3>
+
+        <form id="modelinfo" method="post" class="uk-form uk-form-horizontal">
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Select Vendor</label>
+                <div class="uk-form-controls">
+                    <select id="vd_add" name="vd_add" v-model="vd_add" options="vd_addoptions" required></select>
+                </div>
+            </div>
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Add/Delete Model</label>
+                <div class="uk-form-controls">
+                    <select name="adde">
+                        <option value=1>Add</option>
+                        <option value=0>Delete</option>
+                    </select>
+                </div>
+            </div>
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Drive Model</label>
+                <div class="uk-form-controls">
+                    <input name="md_add" type="text" required />
+                </div>
+            </div>
+            <div class="uk-form-row">
+                <div class="uk-form-controls">
+                    <input type="submit" value="Update Model" class="uk-button uk-button-primary"/>
+                </div>
+            </div>
+        </form>
+
+    </div>
+
+    <div class="uk-panel uk-panel-box uk-width-4-10 uk-margin-left uk-push-1-10">
+        <h3 class="uk-panel-header">Add/Delete Files</h3>
+
+        <form id="fwinfo" method="post" enctype="multipart/form-data" class="uk-form uk-form-horizontal">
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Select Vendor</label>
+                <div class="uk-form-controls">
+                    <select id="vd_id" name="vd_id" v-model="vd" options="vdoptions" onchange="checkValidOption();" required></select>
+                </div>
+            </div>
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Select Model</label>
+                <div class="uk-form-controls">
+                    <select id="md_id" name="md_id" v-model="md" options="mdoptions" onchange="checkValidOption();" required></select>
+                </div>
+            </div>
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Firmware Revision</label>
+                <div class="uk-form-controls">
+                    <input name="fw_rev" type="text" required />
+                </div>
+            </div>
+            <div id="fw_type" class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Firmware Type</label>
+                <div class="uk-form-controls">
+                    <select name="fw_type">
+                        <option>EMC Common</option>
+                        <option>OEM+</option>
+                        <option>EMC SED Common</option>
+                        <option>SED OEM+</option>
+                    </select>
+                </div>
+            </div>
+            <div id="fw_linkspeed" class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Link Speed</label>
+                <div class="uk-form-controls">
+                    <select name="fw_linkspeed">
+                        <option>3G</option>
+                        <option selected>6G</option>
+                        <option>12G</option>
+                    </select>
+                </div>
+            </div>
+            <div id="fw_driveformat" class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Drive Format</label>
+                <div class="uk-form-controls">
+                    <select name="fw_driveformat">
+                        <option>5xxN</option>
+                        <option>4KN</option>
+                    </select>
+                </div>
+            </div>
+            <div class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Add/Delete Files</label>
+                <div class="uk-form-controls">
+                    <select id="adde_file" name="adde_file" onchange="decideFileOption();">
+                        <option>Add Both Files</option>
+                        <option>Add Firmware Only</option>
+                        <option>Add Changelist Only</option>
+                        <option>Delete Entry</option>
+                    </select>
+                </div>
+            </div>
+            <div id="fw_file" class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Firmware File</label>
+                <div class="uk-form-controls">
+                    <input type="file" name="fw_file">
+                </div>
+            </div>
+            <div id="cl_file" class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Changelist</label>
+                <div class="uk-form-controls">
+                    <input type="file" name="cl_file">
+                </div>
+            </div>
+            <div id="fw_releasedate" class="uk-form-row">
+                <label class="uk-form-label" for="form-h-it">Release Date</label>
+                <div class="uk-form-controls">
+                    <input type="text" name="fw_releasedate" placeholder="MM/DD/YYYY" data-uk-datepicker="{format:'MM/DD/YYYY'}">
+                </div>
+            </div>
+            <div class="uk-form-row">
+                <div class="uk-form-controls">
+                    <input type="submit" value="Confirm" class="uk-button uk-button-primary"/>
+                </div>
+            </div>
+        </form>
+
+    </div>
+</div>
+{% endblock %}
